@@ -14,13 +14,12 @@
 #include <tuple>
 #include <vector>
 #include <queue>
-#include <logging.h>
 #include <errno.h>
-#include <signal.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include "logging.h"
 
 namespace nm
 {
@@ -43,9 +42,9 @@ namespace nm
       }
 
       template<typename Obj, typename F, typename TupleType, size_t... Is>
-      static void invoke(R* res, Obj* obj, F&& f, TupleType& args, std::index_sequence<Is...>)
+      static void invoke(R* res, Obj* obj, F f, TupleType& args, std::index_sequence<Is...>)
       {
-        *res = std::forward<F>((obj)->*f)(std::forward<std::tuple_element_t<Is, std::remove_reference_t<TupleType>>>(std::get<Is>(args))...);
+        *res = (obj->*f)(std::forward<std::tuple_element_t<Is, std::remove_reference_t<TupleType>>>(std::get<Is>(args))...);
       }
     };
     template<> struct call_impl<void>
@@ -194,6 +193,7 @@ namespace nm
     public:
       EventLoop()
       {
+        Logger::create_async();
         ::socketpair(AF_UNIX, SOCK_STREAM, 0, pair_);
         efd_ = ::epoll_create(233);
         if(efd_ == -1)
@@ -255,8 +255,8 @@ namespace nm
           {
             return;
           }
-          // timeout
 
+          // timeout
           while(!queue_.empty())
           {
             Data_t data{queue_.front()};
