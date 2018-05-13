@@ -56,11 +56,9 @@ int main()
   bar->post(bar, static_cast<num_t<Bar>>(&Bar::add), foo, static_cast<num_t<Foo>>(&Foo::add));
   bar->post(bar, static_cast<str_t<Bar>>(&Bar::add), foo, static_cast<str_t<Foo>>(&Foo::add));
 
-  sleep(1);
   bar->add(1, 2);
   bar->add("hello ", "world");
   app.exec();
-  sleep(1);
 
   delete foo;
   delete bar;

@@ -138,7 +138,7 @@ namespace nm
             call_impl<res_t>::invoke(tmp, obj, f, arg, indices{});
             // destruct is necessary
             log_info() << "destruct";
-            static_cast<arg_t*>(args)->~arg_t();
+            arg.~arg_t();
           };;
           if(functors_.find(sig) == functors_.end())
           {
@@ -236,20 +236,27 @@ namespace nm
         data.param_size_ = arg_size;
         new (data.param_) param_t{args...};
         queue_.push(std::move(data));
+        write(pair_[0], "0", 1);
       }
 
       void exec()
       {
         while(running_)
         {
+          errno = 0;
           int n = epoll_wait(efd_, rev_, sizeof(rev_), 1);
           if(n == -1)
           {
             log_err() << "epoll_wait: " << strerror(errno);
-            if(errno != EINVAL)
+            if(errno != EINTR)
             {
               return;
             }
+          }
+          else
+          {
+            int junk;
+            read(pair_[1], &junk, 1);
           }
           if(!running_)
           {
@@ -257,7 +264,7 @@ namespace nm
           }
 
           // timeout
-          while(!queue_.empty())
+          if(!queue_.empty())
           {
             Data_t data{queue_.front()};
             queue_.pop();
@@ -317,6 +324,11 @@ namespace nm
       meta::FunctorMap fm_{};
       std::queue<Data_t> queue_{};
 
+      void handle_event()
+      {
+
+      }
+
       std::string get_signature(void* obj, void* fp)
       {
         return std::to_string(reinterpret_cast<uintptr_t>(obj))
@@ -336,12 +348,16 @@ namespace nm
         {
           return;
         }
+        // FIXME
+        // check if Args match the arguments types of F.
         ev_->notify(obj, std::forward<F>(f), std::forward<Args>(args)...);
       }
 
       template<typename sObj, typename sF, typename rObj, typename rF>
       void post(sObj* sobj, sF&& sf, rObj* robj, rF&& rf)
       {
+        // FIXME
+        // check if the arguments types of sf and rf are the same.
         if(ev_ == nullptr)
         {
           return;
