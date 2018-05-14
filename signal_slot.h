@@ -193,6 +193,7 @@ namespace nm
     public:
       EventLoop()
       {
+        setenv("LOG_TYPE", "custom", 1);
         Logger::create_async();
         ::socketpair(AF_UNIX, SOCK_STREAM, 0, pair_);
         efd_ = ::epoll_create(233);
@@ -234,6 +235,7 @@ namespace nm
         //auto param = std::make_tuple(std::forward<Args>(args)...);
         //memcpy(data.param_, (void*)&param, arg_size);
         data.param_size_ = arg_size;
+        data.param_ = new char[arg_size]{};
         new (data.param_) param_t{args...};
         queue_.push(std::move(data));
         write(pair_[0], "0", 1);
@@ -282,11 +284,7 @@ namespace nm
     private:
       struct Data_t
       {
-        Data_t()
-        {
-          param_ = new char[1024];
-        }
-
+        Data_t() = default;
         ~Data_t()
         {
           if(param_ != nullptr)
@@ -324,11 +322,6 @@ namespace nm
       meta::FunctorMap fm_{};
       std::queue<Data_t> queue_{};
 
-      void handle_event()
-      {
-
-      }
-
       std::string get_signature(void* obj, void* fp)
       {
         return std::to_string(reinterpret_cast<uintptr_t>(obj))
@@ -344,13 +337,9 @@ namespace nm
       template<typename Obj, typename F, typename... Args>
       void notify(Obj* obj, F&& f, Args&&... args)
       {
-        if(ev_ == nullptr)
-        {
-          return;
-        }
         // FIXME
         // check if Args match the arguments types of F.
-        ev_->notify(obj, std::forward<F>(f), std::forward<Args>(args)...);
+        ev_.notify(obj, std::forward<F>(f), std::forward<Args>(args)...);
       }
 
       template<typename sObj, typename sF, typename rObj, typename rF>
@@ -358,48 +347,25 @@ namespace nm
       {
         // FIXME
         // check if the arguments types of sf and rf are the same.
-        if(ev_ == nullptr)
-        {
-          return;
-        }
-        ev_->post(sobj, sf, robj, rf);
+        ev_.post(sobj, sf, robj, rf);
       }
 
     private:
       friend App;
-      inline static EventLoop* ev_{nullptr};
+      inline static EventLoop ev_{};
   };
 
   class App : public Object
   {
     public:
-      App()
-      {
-        Object::ev_ = new EventLoop{};
-      }
-
-      ~App()
-      {
-        if(Object::ev_ != nullptr)
-        {
-          delete Object::ev_;
-        }
-      }
-
       void exec()
       {
-        if(ev_ != nullptr)
-        {
-          ev_->exec();
-        }
+        ev_.exec();
       }
 
       void quit()
       {
-        if(Object::ev_ != nullptr)
-        {
-          ev_->quit();
-        }
+        ev_.quit();
       }
   };
 }

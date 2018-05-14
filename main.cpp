@@ -48,7 +48,6 @@ struct Bar : nm::Object
 
 int main()
 {
-  setenv("LOG_TYPE", "custom", 1);
   nm::App app;
 
   Foo* foo = new Foo{app};
